@@ -1,30 +1,117 @@
 TODO:
 
-Immediate:
-X- Mocha test to run model3
-X-  Model3 uses logger passed in by sim/model
-X-  Fix model3 (units->net, include issuer?)
-X- Simulation still works for model2/model3
-X- Doc accounts don't seem to be getting updated on first run
-X- Model3 calls done() when finished
-X- Model3 regression test passes
-X- All regression tests pass
+X- Stray state in Tally state diagram?
+
+- Refine/document report protocol in backend:
+-  Tally invitation QR report still works in mobile app
+
+- Implement report for: Visual Balance Sheet
+X-  Urnet still working (check error)
+X-  Breakout class for handling graph-specific operations
+X-  Urnet still working
+X-  Build valid user record in query
+X-    Must contain assets, liabs
+-  
+-  Wrap try/catch around VisBS module call
+-  Implement single-user version that references class
+-  Obsolete: visbs.vue, urnet1.vue
+-  
+-  Report can return url or html with embedded iframe
+-  When report resource called for, return html/javascript
+-  Reimplement urnet using only d3 and no vue
+-  Port code from urnet to display for a single user
+-  Can the new code be a resource called from urnet?
+-  Can view report from User SPA
+-  Can view report in WebView in Chark
+-  Back-port admin console network view to use generalized library
+
+- Consolidate local dirs:
+-  Move pki/local under local/pki?
+-  Move sim/local under local/sim?
+-  Move test/local under local/test?
+
+- Can we serve user photos from the document server?
+-  Add user photo (document) database table?
+-  Include hash reference to photos in certificates
+
+- User registration page refinements:
+-  Email confirmation code, enter on page, rather than emailing link? (low priority)
+-  Page Includes links to Android APK and Apple testflight
+-  Can view terms of Service page?
+-  Fix document server also running on 443 (request by hash?)
 - 
 - Chit consensus
--   Implement signatures/checking on tallies/chits
--   Implement consensus protocol subsystem
--   Mocha tests to simulate network disconnections, chit collisions
--
+-  Why is one chit still left in pending state after tests?
+-  Update existing code to honor chain state (honor how?)
+-    Only _process commands if in appropriate cstate?
+-  Existing regression tests still work
+-  Notify user (or admin?) when a consensus reached on a tally/chit?
+-    So we don't have to timeout in tests
+-  Commit
+-  
+- Make test for chits that cross in transit
+-  Make adjustable delay before received chit processed
+-  Test attempts a range of possible delays
+-  
+-  Stock can request arbitrary chain query message (is this needed?)
+-  Stock requeues any stray chits found after upd packet
+-  All regression tests pass
+-  Comment out PG notices
+-  Simulation still works
+-  Commit/merge to master
+-   
 - Distributed lifts (interim, pre-1.0 functionality):
 -  Distributed lifts work with model2/model3?
 -  Do some lifts fail (when they should) in the simulation?
 -  How do lift records get marked to void? (implement agent timeouts?)
 -  Some routes are failing with invalid state (RZ)
 - 
-- Cleanups:
-- Remove code (and then test) allowing tally close by unauthenticated (non-chit) request
+- Linear lifts:
+-  Create draft lift record and retrieve digest
+-  Sign the digest and write to DB
+-  Trigger detects the new record
+-   If we have an internal path to the destination, pay with local lift (simple)
+-   Else, if we have a possible route, queue up as a distributed lift.
+- 
+- Chark App Integration:
+-  Document method for debugging server certificate
+-  
+-  New user process:
+X-  User can sign up for new account
+-   User can download app (android and IOS)
+-   User stepped through connection phase
+-   Can connect by scanning connection QR
+-   Can connect by following deep link
+-   User prompted to complete minimum required profile data
+-  Language display:
+-   Test/demonstrate drawing language data from backend
+-   All language data coming from backend
+-   Populate second language (Nepali?)
+-  Tally Initiation:
+-   User can create draft tally
+-   User can create multiple draft tallies
+-   Draft tallies may contain different details, including user certificate
+-   If tally is generated not from a draft, it uses default certificate data
+-   User can generate tally invitations from draft or default
+-   User can share tally invitation via text, email, scan, print, pdf, etc
+-   User can share tallyinvitation as a QR or deep link
+-  Tally recipient:
+-   User can view/evaluate tally invitations from deep link and QR
+-   User can reject tally invitation
+-   User can modify and counter offer (share) tally invitation
+-   User can accept tally invitation
+-   Accepted tally is digitally signed by both parties
+-  Chits:
+-   User can send unsolicited chit on any open tally
+-   User can send payment request chit on any open tally
+-   Users receive notification when chit is received
+-   User can respond to received payment request chit
+-   User can reject, modify, or accept payment request chit
+- 
+- 
+- Misc Cleanups:
 - Correctly assess lading on lift push through foreign tally (we now know parter's limit/bound)
--   Merge local null min with route lading correctly
+-  Merge local null min with route lading correctly
 -  Should all xxx_process functions return text or JSON (routes need JSON)?
 -  Why do some routes get stuck in draft mode (See RZ notice)?
 -  Should the "tally" property of a route message be in the message, not the object (since it should change at each hop)?
@@ -34,13 +121,6 @@ X- All regression tests pass
 -  Can peer containers run with spa services disabled?
 X-  Can/should we change chit units to be stored internally with sign relative to stock/foil?
 - 
-- Linear lifts:
--   Create draft lift record and retrieve digest
--   Sign the digest and write to DB
--   Trigger detects the new record
--     If we have an internal path to the destination, pay with local lift (simple)
--     Else, if we have a possible route, queue up as a distributed lift.
-- 
 - Server process: mychips.js
 X-   Can launch an agent server for each locally defined agent
 X-   Where/how to build/store agent private keys (pki folder?)
@@ -48,7 +128,7 @@ X-   Where/how to build/store agent private keys (pki folder?)
 -   How does the system identify local agents vs/ peer agents?
 -   Implement local lift scheduler/scanner/processor
 -  
-- Server now ready for single-site use/deployment?
+- System now ready for single-site use/deployment?
 - 
 - Admin UI tab for editing local agents?
 - How to mark agents as local (and is it needed to determine local agents)?

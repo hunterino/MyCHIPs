@@ -17,9 +17,9 @@ require config.tcl trigview.tcl
 
 namespace eval tallies {
     def tallies_pk	{tally_ent tally_seq}
-    def tallies_v_up	{comment target reward clutch bound part_sig hold_sig request}
-    def tallies_v_in	[concat tally_ent $tallies_v_up tally_uuid tally_type version part_ent contract hold_cert part_cert hold_terms part_terms]
-    def tallies_se	[concat $tallies_v_in tally_seq status digest net_pc net_c tally_date hold_cid hold_agent part_cid part_agent hold_sets part_sets $glob::stampfn]
+    def tallies_v_up	{tally_type comment contract hold_terms part_terms target reward clutch bound part_sig hold_sig request}
+    def tallies_v_in	[concat tally_ent $tallies_v_up tally_uuid version part_ent hold_cert part_cert]
+    def tallies_se	[concat $tallies_v_in tally_seq status digest net_pc net_c tally_date hold_cid hold_agent part_cid part_agent hold_sets part_sets chain_conf $glob::stampfn]
 }
 
 other tally_side {} {
@@ -34,41 +34,42 @@ table mychips.tallies {mychips mychips.users tally_side} {
   , tally_uuid	uuid		not null
   , tally_type	tally_side	not null default 'stock'
   , tally_date	timestamptz	not null default current_timestamp
-  , version	int		not null default 1 constraint "!mychips.tallies.VER" check (version > 0)
+  , version	int		not null default 1 constraint "!mychips.tallies:VER" check (version > 0)
   , comment	text
-  , contract	jsonb		constraint "!mychips.tallies.TCM" check (not (status = 'open' and contract isnull))
-  , hold_cert	jsonb		constraint "!mychips.tallies.UCM" check (not (status = 'open' and hold_cert isnull))
-  , part_cert	jsonb		constraint "!mychips.tallies.PCM" check (not (status = 'open' and part_cert isnull))
-  , hold_sig	text		constraint "!mychips.tallies.USM" check (not (status = 'open' and hold_sig isnull))
-  , part_sig	text		constraint "!mychips.tallies.PSM" check (not (status = 'open' and part_sig isnull))
+  , contract	jsonb		constraint "!mychips.tallies:TCM" check (not (status = 'open' and contract isnull))
+  , hold_cert	jsonb		constraint "!mychips.tallies:UCM" check (not (status = 'open' and hold_cert isnull))
+  , part_cert	jsonb		constraint "!mychips.tallies:PCM" check (not (status = 'open' and part_cert isnull))
+  , hold_sig	text		constraint "!mychips.tallies:USM" check (not (status = 'open' and hold_sig isnull))
+  , part_sig	text		constraint "!mychips.tallies:PSM" check (not (status = 'open' and part_sig isnull))
   , hold_terms	jsonb		not null default '{}'			-- Terms we grant to our partner
   , part_terms	jsonb		not null default '{}'			-- Terms partner grants to our holder
   , digest	bytea
 
 -- Values settable by the holder, cached version of latest applicable settings chit
-  , target	bigint		not null default 0 constraint "!mychips.tallies.TGT" check (target >= 0 and target <= bound)
-  , bound	bigint		not null default 0 constraint "!mychips.tallies.BND" check (bound >= 0)
-  , reward	float		not null default 0 constraint "!mychips.tallies.RWD" check (reward >= -1 and reward <= 1)
-  , clutch	float		not null default 0 constraint "!mychips.tallies.CLT" check (clutch >= -1 and clutch <= 1)
+  , target	bigint		not null default 0 constraint "!mychips.tallies:TGT" check (target >= 0 and target <= bound)
+  , bound	bigint		not null default 0 constraint "!mychips.tallies:BND" check (bound >= 0)
+  , reward	float		not null default 0 constraint "!mychips.tallies:RWD" check (reward >= -1 and reward <= 1)
+  , clutch	float		not null default 0 constraint "!mychips.tallies:CLT" check (clutch >= -1 and clutch <= 1)
 
 -- Values used internally to track state, required actions
-  , request	text		constraint "!mychips.tallies.IVR" check(request is null or request in ('void','draft','offer','open','close'))
+  , request	text		constraint "!mychips.tallies:IVR" check(request is null or request in ('void','draft','offer','open'))
   , status	text		not null default 'draft'
-  				constraint "!mychips.tallies.IVS" check(status in ('void','draft','offer','open','close'))
+  				constraint "!mychips.tallies:IVS" check(status in ('void','draft','offer','open','close'))
   , part_ent	text		references mychips.users on update cascade on delete restrict
-  				constraint "!mychips.tallies.NSP" check (part_ent != tally_ent)
-  			      , constraint "!mychips.tallies.TNU" unique(tally_type, tally_uuid)
+  				constraint "!mychips.tallies:NSP" check (part_ent != tally_ent)
+  			      , constraint "!mychips.tallies:TNU" unique(tally_type, tally_uuid)
   , net_c	bigint		default 0 not null
   , net_pc	bigint		default 0 not null
-  , hold_cid	text		constraint "!mychips.tallies.UCI" check (not (status = 'open' and hold_cid isnull))
-  , part_cid	text		constraint "!mychips.tallies.PCI" check (not (status = 'open' and part_cid isnull))
+  , hold_cid	text		constraint "!mychips.tallies:UCI" check (not (status = 'open' and hold_cid isnull))
+  , part_cid	text		constraint "!mychips.tallies:PCI" check (not (status = 'open' and part_cid isnull))
   , hold_agent	text		references mychips.agents on update restrict on delete restrict
-  				constraint "!mychips.tallies.UAI" check (not (status = 'open' and hold_agent isnull))
+  				constraint "!mychips.tallies:UAI" check (not (status = 'open' and hold_agent isnull))
   , part_agent	text		references mychips.agents on update restrict on delete restrict
-  				constraint "!mychips.tallies.PAI" check (not (status = 'open' and part_agent isnull))
+  				constraint "!mychips.tallies:PAI" check (not (status = 'open' and part_agent isnull))
   , hold_sets	jsonb		not null default '{}'
   , part_sets	jsonb		not null default '{}'
-  , chain_conf	int		default 0 not null
+  , chain_conf	int		not null default 0
+  , chain_stat	text		not null default 'con' check (chain_stat in ('con','prob','req','err','pend'))
   , _last_chit	int		not null default 0
 
 --Obsolete values:
@@ -132,9 +133,8 @@ function mychips.tallies_tf_bu() {mychips.user_cert(text) mychips.tally_certs(my
       if not new.request isnull then		-- check for legal state transition requests
         if not (
           new.request in ('void','draft','offer') and old.status in ('void', 'draft', 'offer') or
-          new.request = 'open' and old.status = 'offer' or
-          new.request = 'close' and old.status = 'open'
-        ) then raise exception '!mychips.tallies:ISR % %', old.status, new.request;
+          new.request = 'open' and old.status = 'offer'
+        ) then raise exception '!mychips.tallies:IST % %', old.status, new.request;
         end if;
         if new.request = 'offer' then		-- Our user is re-drafting
           new.part_sig = null;			-- Partner will have to re-sign
@@ -217,7 +217,7 @@ function {mychips.tally_notify_agent(tally mychips.tallies)} {mychips.tallies_v 
           on conflict (ttry_ent,ttry_seq) do update set tries = mychips.tally_tries.tries + 1, last = current_timestamp
             returning * into rrec;
 -- raise notice 'Try:%-%', tally.tally_ent, tally.tally_seq;
--- raise notice 'Tn c:% t:% f:%', channel, trec.part_chad, trec.hold_chad;
+--raise notice 'Tn c:% t:% f:%', channel, trec.part_chad, trec.hold_chad;
         jrec = jsonb_build_object(
           'target',	'tally',
           'action',	tally.request,
@@ -315,7 +315,7 @@ view mychips.tallies_v {mychips.tallies mychips.chits_v mychips.users_v mychips.
   
   , not te.part_ent is null						as inside
   , mychips.tally_state(status,request,hold_sig,part_sig)		as state
-  , mychips.tally_state(status,request,hold_sig,part_sig) = any(array['P.offer','close','draft']) as action
+  , mychips.tally_state(status,request,hold_sig,part_sig) = any(array['P.offer','draft']) as action
   , te.status = 'open' or (te.status = 'close' and net_pc != 0)		as liftable
 
   , coalesce(cg.chits, 0)				as chits
@@ -342,6 +342,7 @@ view mychips.tallies_v {mychips.tallies mychips.chits_v mychips.users_v mychips.
       'clutch',		te.clutch,
       'bound',		te.bound
     )		as policy
+  , cc.digest		as ack_hash
 
     from	mychips.tallies	te
     left join	mychips.agents_v ua on ua.agent = te.hold_agent
@@ -353,10 +354,34 @@ view mychips.tallies_v {mychips.tallies mychips.chits_v mychips.users_v mychips.
     left join	(select chit_ent, chit_seq,
          sum(net) as net, count(chit_idx) as chits, max(mod_date) as latest
          from mychips.chits_v where status = 'pend' and chit_type != 'set' group by 1,2
-       ) ce on ce.chit_ent = te.tally_ent and ce.chit_seq = te.tally_seq;
+       ) ce on ce.chit_ent = te.tally_ent and ce.chit_seq = te.tally_seq
+    left join	(select chit_ent,chit_seq,chain_idx,digest from mychips.chits_v where status = 'good'
+       ) cc on cc.chit_ent = te.tally_ent and cc.chit_seq = te.tally_seq
+         and cc.chain_idx = te.chain_conf;
 
     eval(trigview::insert mychips.tallies_v mychips.tallies $tallies::tallies_v_in $tallies::tallies_pk [concat $glob::stampin]);
-    eval(trigview::update mychips.tallies_v mychips.tallies $tallies::tallies_v_up $tallies::tallies_pk $glob::stampup);
+}
+
+# Custom update function; Only allow updates of regular fields for draft tally
+#----------------------------------------------------------------
+define updEnd {
+  where eval(fld_list_eq $tallies::tallies_pk old { and })
+    returning eval(join $tallies::tallies_pk ,) into eval(fld_list $tallies::tallies_pk new);
+}
+function {mychips.tallies_v_updfunc()} {mychips.tallies_v} {
+ returns trigger language plpgsql security definer as $$
+  begin
+    if old.status = 'draft' then
+      update mychips.tallies set eval(trigview::upfields $tallies::tallies_v_up $glob::stampin) updEnd()
+    else
+      update mychips.tallies set eval(trigview::upfields {request} $glob::stampin) updEnd()
+    end if;
+    select into new * from mychips.tallies_v where tally_ent = new.tally_ent and tally_seq = new.tally_seq;
+    return new;
+  end;
+$$;}
+trigger mychips_tallies_tr_upd {} {
+    instead of update on mychips.tallies_v for each row execute procedure mychips.tallies_v_updfunc();
 }
 
 # User view of tallies
@@ -536,17 +561,14 @@ $$;}
 
 # Generate notifications about new or updated tallies for listening admin servers
 #----------------------------------------------------------------
-function mychips.change_tf_notify() {mychips} {
+function mychips.tallies_tf_change() {mychips} {
   returns trigger language plpgsql security definer as $$
     begin
---raise notice 'Change notify: mychips_admin';
-      perform pg_notify('mychips_admin', format('{"target":"%s", "oper":"%s", "time":"%s"}', coalesce(TG_ARGV[0],'Unknown'), TG_OP, transaction_timestamp()::text));
+raise notice 'Admin tallies notify:%', TG_OP;
+      perform pg_notify('mychips_admin', format('{"target":"tallies", "oper":"%s", "time":"%s"}', TG_OP, transaction_timestamp()::text));
       return null;
     end;
 $$;}
 trigger mychips_tallies_tr_change {} {
-    after insert or update or delete on mychips.tallies for each statement execute procedure mychips.change_tf_notify('tallies');
+    after insert or update or delete on mychips.tallies for each statement execute procedure mychips.tallies_tf_change();
 }
-#trigger mychips_chits_tr_change {} {	--Redundant?
-#    after insert or update or delete on mychips.chits for each statement execute procedure mychips.change_tf_notify('chits');
-#}

@@ -22,12 +22,15 @@ parm:
 	${WM} --no-make init
 
 run:
-	${WM} ${WMPATH}/lib/run_time.wms
+	${WM} ${WMPATH}/lib/run_time.wm*
 
 sql:	objects text defs
 	${WM} init -s >../lib/schema-1.sql
 
 schema:	objects text defs
 	${WM} init -S ../lib/schema.json
+
+commit:	schema
+	${WM} -C
 
 all: objects text defs init

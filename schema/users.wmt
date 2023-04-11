@@ -16,14 +16,25 @@ tabtext mychips.users	{CHIP Users}		{Entities who have CHIP accounts on this ser
     {user_hid		{Hashed ID}		{An obscured version of the ID by which might be given out as a more anonymous destination for a transaction}}
     {user_cmt		{User Comments}		{Administrative comments about this user}}
 } $glob::stampt] -messages {
-    {BRM {Birth Record Update} {Birth record can only be written once by the user}}
+    {BRM	{Birth Record Update}	{Birth record can only be written once by the user}}
+    {UST	{Invalid Trading Status}	{A disallowed value for the user trading status was specified}}
 }
 
 tabtext mychips.users_v	{CHIP Users}		{Entities who have CHIP accounts on this server.} {
     {user_sock		{User Socket}		{The IP Number, and port to which the user's mobile device will connect}}
     {peer_sock		{Peer Socket}		{The IP Number, and port where other servers can connect to trade with this peer.}}
 } -messages {
-    {ticket 	{User Ticket}		{Generate a temporary, one-time pass to allow a user to establish a secure connection with the server}}
+    {GTK		{Generating Ticket}	{A database error occurred while generating a user connection ticket}}
+    {URF		{Unknown Format}	{Unknown format for a connection ticket}}
+    {TMK		{Bad Key Number}	{The connection ticket must be called for exactly one user}}
+    {TIN		{Connection Ticket}	{Link to access your service provider}}
+    {TIL		{Good Until}		{Ticket expires after this time}}
+    {ticket 		{User Ticket}		{Generate a temporary, one-time pass to allow a user to establish a secure connection with the server}}
+      {ticket.format	{Format}	{Determines which type of connection ticket is generated}}
+        {ticket.format.qr	{qr}	{Return connection ticket as a QR code}}
+        {ticket.format.link	{link}	{Return connection ticket as deep link Uniform Resource Locator}}
+        {ticket.format.url	{url}	{Return connection ticket as an SPA Uniform Resource Locator}}
+        {ticket.format.json	{json}	{Return connection ticket as JSON object}}
     {lock	{Lock Account}		{Put the specified account(s) into lockdown mode, so no further trading can occur}}
     {unlock	{Unlock Account}	{Put the specified account(s) into functional mode, so normal trading can occur}}
     {summary	{Summary Report}	{Report about the current status of the selected user}}
@@ -39,6 +50,20 @@ tabtext mychips.users_v	{CHIP Users}		{Entities who have CHIP accounts on this s
          or other entity, and then furnish the additional information to fill out the user fields.
     }}
 }
+
+tabtext mychips.users_v_me	{Current User}		{A view containing only the current user's data} -messages {
+    {graph 	{Tally Graph}	{Generate a visual graph of the user's tally relationships and balances}}
+      {graph.format 	{Graph Format}	{How to return the graph report data}}
+        {graph.format.html	{html}	{Return HTML fragment that contains the report}}
+        {graph.format.url	{url}	{Return an url link to a web page containing the report}}
+    {launch.title	{Current User}		{Current User Account Record}}
+    {launch.instruct	{Basic Instructions}	{
+      <p>This view shows only the record pertaining to the connected user
+    }}
+}
+
+tabtext mychips.addr_v_me	{User Addresses}	{A view of the current user's partners' addresses}
+tabtext mychips.comm_v_me	{User Contact}		{A view of the current user's partners' communication points}
 
 #Sample text in alternate language:
 tabtext mychips.users -lang fin	{CHIP käyttäjät}	{Yksiköt, joilla on CHIP-tilejä tällä palvelimella} {

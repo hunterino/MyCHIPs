@@ -2,8 +2,8 @@
 
 ### General
 As of this writing (Jul 2022) no mobile app is yet functional.
-There is a Flutter app originally written by the BYU Capstone team, but it is not yet
-connected to the backend.
+There is a Flutter app originally written by the BYU Capstone team, but it is not yet connected to the backend.
+Update: as of Dec, 2022 an app based on React Native is under way [here](https://github.com/gotchoices/MyCHIPs/tree/dev/client/chark).
 
 The sections below contain certain design objectives and API definitions for what 
 will hopefully become the mobile application.
@@ -69,7 +69,7 @@ User applications do this through a user API.
 There are several cases we will consider:
   - Application runs as a web app in a browser (existing demo SPA's)
   - Application is a web-app wrapped to feel more native (such as Ionic)
-  - Application is fully native (such as Flutter)
+  - Application is fully native (such as Flutter or React Native)
 
 In the first case (Single Page Application), the user directs his browser to
 a trusted server where he can load the SPA over https.
@@ -84,11 +84,10 @@ From then on, the user can connect by encryping a known object with the user's p
 The particulars of this authentication scheme are not
 separately documented, but can be examined in more detail in the
   - Wyseman [server source code](https://github.com/gotchoices/wyseman/blob/master/lib/wyseman.js),
-  - Browser [client source code](https://github.com/gotchoices/wylib/blob/master/src/wyseman.js), and
-  - Node.js [client source code](https://github.com/gotchoices/wyseman/blob/master/lib/client.js),
+  - Wyseman [client source code](https://github.com/gotchoices/wylib/blob/master/src/client_ws.js).
 
-The Node.js client API module could be incorporated into a web application, such as in the Ionic framework.
-A [Dart API](/client/flutter/lib/wyseman/wyseman_client.dart) module is under development to facilitate a flutter implementation.
+The JS client API module is written generally enough that it can work with a browser, node.js, React Native, etc.
+A [Dart API](/client/flutter/lib/wyseman/wyseman_client.dart) module was partially written but has not been fully tested.
 
 ### Sample Command-line Client
 There is a JS utility [here](https://github.com/gotchoices/MyCHIPs/blob/master/test/sample/entcli)
@@ -101,9 +100,8 @@ allows a client, running in a browser, to connect to the backend and send
 [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) commands to the database.
 
 The sample command line program demonstrates how to do this without a browser in node.js.
-It makes use of a [client module](https://github.com/gotchoices/wyseman/blob/master/lib/client.js),
-provided by Wyseman, that is similar to the browser-side code in Wylib and performs a comparable
-function, allowing a user to authenticate and connect.
+It makes use of the [client module](https://github.com/gotchoices/wyseman/blob/master/lib/client_ws.js)
+just as the Wylib SPA's do.
 
 To test the sample CLI, get the MyCHIPs server running as explained [elsewhere](doc/Develop.md).
 Generate a connection ticket:
@@ -114,12 +112,12 @@ If your server is running in docker, you may need to run this inside that contai
 You may also have to supply the hostname (-H) and/or other parameters compatible with your docker environment.
 Specifically, the ticket needs to contain the correct host, port, user and token information.
 
-Now try running the client.  Note that for a production docker-based server, the spa certificate may
+Now try running the client.  Note that for a production docker-based server, the web certificate may
 be somewhere else (like test/local/docker/pki).  Specifying it to the CLI is comparable with
 installing it in your browser (or OS) for browser-based clients.
 ```
   cd test/sample
-  ./entcli -a mychips0 -c ../../pki/local/spa-ca.crt -t ../local/admin.json -u admin
+  ./entcli -a mychips0 -c ../../pki/local/web-ca.crt -t ../local/admin.json -u admin
 ```
 The program will provide logging (something like /tmp/wyatt/combined.log) if you have the
 environment variable NODE_DEBUG set to "debug" or "trace".  The backend should be logging as
@@ -134,7 +132,7 @@ Once you have connected using a one-time connection token, the program will crea
 permanent connection key and will store it in its "vault" ($USER/.mychips_keys).
 Then you can connect more simply with:
 ```
-  entcli -a mychips0 -c ../../pki/local/spa-ca.crt
+  entcli -a mychips0 -c ../../pki/local/web-ca.crt
 ```
 The key vault file is meant to be compatible with what is created/used in the browser-based sample GUI.
 So you should be able to import that same file into the browser GUI and connect successfully.
@@ -143,13 +141,13 @@ So you should be able to import that same file into the browser GUI and connect 
 User application developers should be aware of how to communicate with the backend:
 - The software [model](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) is atomically contained in the PostgreSQL database.
 - As it relates to the user API, the NodeJS server does the following:
-  - Serves up a Single Page Application (not applicable to a native implementation)
+  - Serves up a Single Page Application (not applicable to a native app implementation)
   - Handles authentication of the user (using keys stored in the DB user record)
   - Connects the user to the DB <b>as the specific user ID</b> with its associated privileges
   - Receives JSON encoded commands from the user app, which can be
-    - Abstracted SQL CRUD command
-    - Abstracted SQL stored procedure all
-    - A call to JS code (an "action" or "report") living in the NodeJS server (control layer)
+    - Abstracted SQL CRUD commands
+    - Abstracted SQL stored procedure call
+    - A call to JS code (an "action" or "report") in the NodeJS server control layer
   - CRUD and stored procedures are simply translated to SQL, executed under the user's permissions, and the results returned to the app, tagged by the same transaction ID that generated the call.
   - Actions (or reports, if they return something) get executed by an assigned control layer (NodeJS) procedure, which will likely be interacting with the DB (and using admin permissions).
   - Reports can return results in a variety of formats:
@@ -195,7 +193,7 @@ In brief, the object consists of at least these three properties:
   - **insert**: The query contains information to insert a tuple.
   - **delete**: The query is intended to remove 0 or more tuples.
 
-The received object may also include one or more of the following properties:
+The object may also include one or more of the following properties:
 - **table**: A table name (or name of a stored procedure) should this need to differ from the "view" property mentioned above.
 - **params**: An array of parameters to use, should the table actually indicate the name of a stored procedure.
 - **fields**: An array of fields to include in a select query.
@@ -205,7 +203,7 @@ The received object may also include one or more of the following properties:
   For details on this object structure see "buildOrder()" function.
 
 Once the query is complete, a result object will be returned to the caller, which includes these properties:
-  - **id**: The original identifier.
+  - **id**: The original identifier from the caller.
   - **view**: The original view.
   - **action**: The original action.
   - **error**: An error object, if an error occurred in the transaction.
@@ -216,27 +214,66 @@ In addition to the standard CRUD actions defined above, Wyseman allows the calli
 application to include an extended action handler.
 This is specifically handled in the
 [dispatch manager](https://github.com/gotchoices/wyclif/blob/master/lib/dispatch.js),
-part of the
-[Wyclif](https://github.com/gotchoices/wyclif)
-library.
+part of the [Wyclif](https://github.com/gotchoices/wyclif) library.
 
 MyCHIPs makes use of this in order to implement report handlers.
 These are registered with Wyclif in the
 [main program](https://github.com/gotchoices/MyCHIPs/blob/master/bin/mychips.js)
-using the "Parser()" call currently around line 17.
+using the "Parser()" call currently around line 20.
 And the report functions themselves are found in
-[this file](https://github.com/gotchoices/MyCHIPs/blob/master/lib/control1.js)
-and
-[this file](https://github.com/gotchoices/MyCHIPs/blob/master/lib/control2.js).
+[this folder](https://github.com/gotchoices/MyCHIPs/blob/master/lib/control).
 
-Report handlers can return information in a variety of formats.
-This can include html, svg, jpg and pdf, as well as JSON data that may be specific to
-a particular UI widget.
+Report handlers can return information in a variety of rendering formats.
+This includes html but it can return general JSON data that may be meant to render in some
+other widget or framework.
 
-For example, a user connection ticket is actually generated in the backend,
-including the QR code.
+As one example, a user connection ticket is generated in the backend, including the QR code.
 The admin app needs only specify the report handler it wants to call and the
 backend will serve up everything it needs in order to display the connection code.
+
+### Language Data
+Wyseman also includes a facility for serving up a variety of dictionary data about database objects.
+This can be expressed in any number of languages.
+
+The intent is that a mobile app will draw all its language data from the backend.
+So app developers should code apps using language tags and then populate the database with whatever language strings are necessary for the app to operate.
+
+Language data are organized according to views, as in database views.
+Each view (or table) will contain all manner of data explaining the title and detailed descriptions for 
+the table itself, as well as all its columns.
+In addition, each table/view can have any number of arbitrary messages associated with it.
+
+An application wanting to access language data should execute something like this:
+```
+Wyseman.register(something_unique, view_name, (data, err) => {
+  if (err) {<report errot>; return}
+  local_reactive_variable = data
+})
+```
+This will do an initial fetch of the metadata from the database associated with the requested view.
+The wyseman module will also cache the data in memory for the duration of the object's existence.
+If available, the data can also be cached in the devices local storage so that when an app launches
+it will have all the language (and other) metadata from the previous session.
+
+Subsequent register calls will still fetch fresh data from the database.
+But in the mean time, display tags should still display correctly according to cached data.
+
+Any time a user's language preference changes, you should call:
+```
+   Wyseman.newLanguage(lang)
+```
+This will fetch all new language data for all registered views.
+If the app is built reactively, all language data in the app should change to display in the new language.
+
+To get an idea of what language data is available, try this queries:
+```
+  select sch,tab,title,help,jsonb_pretty(to_jsonb(messages)) from wm.table_lang where tab = 'some_view'
+```
+Note that the database can also store any number of arbitrary JSON structures associated with a few.
+These are called styles and can be queried as follows:
+```
+  select sch,tab,jsonb_pretty(styles) from wm.table_meta where tab = 'some_view'
+```
 
 ### Key Security
 A native web application has a notable security issue to deal with.

@@ -33,7 +33,8 @@ agent process to the database since the subsystem is already inherently known by
 database procedure being called.
 
 ### Status and States
-The database is the authoritative repository of the system state.
+MyCHIPs is structured as a [model-view-controller](https://en.wikipedia.org/wiki/Model-view-controller) pattern.
+The database is the authoritative repository of the system state (the model).
 Processes in the control layer (user and agent processes) and or in the mobile app or other view 
 applications should consider their data transitory and should rely on the model as much as necessary.
 
@@ -59,15 +60,14 @@ indicating it is appropriate now to transition to the requested state (the new s
 
 Similarly, an agent process may receive a message from a peer agent at any time.
 These messages also request a change in state of the targeted object.
-A corresponding state change command can be issued directly to the database but it is contingent
-upon the existing state.
+A corresponding state change command can be issued directly to the database but it is contingent upon the existing state.
 In this way, commands will only be considered valid if the object is still in the intended state
 (context) at the instant they are interpreted.
 
 ### State Codes
 Previous to 2022, the states of subsystem objects (tallies, chits, routes, lifts) were
 arbitrarily named.
-Moving to protocol >= 1.0 they will utilize a state format encoded as follows:
+Moving to protocol >= 1.0 they utilize a state format encoded as follows:
 
   - type.status.request (tallies, chits)
   - status.freshness (routes)
@@ -190,7 +190,7 @@ The *object* property for the chit is defined as follows:
   - **tally**: The UUID of the tally this chit belongs to.
   - **issue**: The value 'stock' or 'foil' to indicate which holder issued the chit pledge (or setting).
   - **units**: The number of milli-CHIPs on this chit.  This should always be a positive number.
-  - **date**: Date/time the chit was created
+  - **date**: Date/time the chit was became/becomes effective.
   - **type**: The value 'tran' (transaction), 'set' (setting) or 'lift' (linear or circular)
   - **ref**: A JSON data structure containing invoice, order, or other references material to the transaction.
     For setting chits, this contains the values of the settings:
@@ -201,7 +201,7 @@ The *object* property for the chit is defined as follows:
   - **memo**: A human-readable description or comment about the transaction.
   - **digest**: A string hash of the rest of the chit in a standard serialized format
   - **signed**: The digital signature of the hash by the grantor, whether Client or Vendor
-  - **chain**: the new endHash computed as a result of adding the present valid, signed chit (if applicable).  See [below](#consensus-messages) for more information about use of this property.
+  - **digest**: the new endHash computed as a result of adding the present valid, signed chit (if applicable).  See [below](#consensus-messages) for more information about use of this property.
 
 Chit state transition messages are as follows:
 
@@ -226,24 +226,42 @@ Chit state transition messages are as follows:
 #### Consensus Messages
 In addition to the four main subsystems mentioned above, there is a 
 [sub-protocol for maintaining consensus](learn-protocol.md#chit-chain-consensus) 
-between the stock and foil about the order in which chits are recorded on the tally (the chit chain).
+between the stock and foil about the order and integrity of chits recorded on the tally (the chit chain).
 
-This can be thought of as a set of sub-states a tally can be in while its main state is open
-(and/or closing).  Since it does involve the tally's state, it has its own state processing
-subsystem and message set.
+This can be thought of as a set of sub-states a tally can be in while its main state is open (and/or closing).
+For example, a stock can be said to be *consensed* or *not yet consensed* with its foil counterpart.
+But we can also think of consensus as an extension of the chit protocol because individual chits can either be
+*linked* into the chit chain or *not yet linked*.
 
-Chain consensus can invoke/create the following messages:
-- **new**: Foil sends valid chit, accompanied by new endHash
-- **new**: Stock sends valid chit, accompanied by proposed endHash (propHash)
-- **ack**: Foil acknowledges stock's proposed endHash
-- **request**: Stock requests chits since last acknowledged endHash (ackHash)
-- **update**: Foil sends chits since last acknowledged endHash (ackHash)
-- **error**: Stock reports an error attempting to reconcile with endHash
+This makes it difficult to attribute a single, granular consensus state to tally.
+A tally can have some chits linked, others in the process of being linked and still others needing to be linked.
+
+So for purposes of [negotiating consensus](lean-protocol.md#chit-chain-consensus), we will define a substate that is applicable to individual chits.
+A foil will be considered *in consensus* when every good chit has been linked into its chain.
+A stock will be considered *in consensus* when every good chit has been linked into its chain and the resulting end hash has been confirmed with the foil.
+
+Since attaining consensus is the result of hash-chaining chits, we will utilize the chit message handling module (i.e. property target = chit).
+Consensus messages specify the property action = 'chain' which means
+"Hand this message to the consensus processing module."
+
+The [consensus state machine](learn-protocol.md#chit-chain-consensus) references the following message sub-commands:
+- **new**: (virtual) Foil sends valid chit, accompanied by new endHash
+- **new**: (virtual) Stock sends valid chit, accompanied by proposed endHash (propHash)
+- **req**: Stock requests chits since last acknowledged endHash (ackHash) or some other starting point in the chain.
+- **upd**: Foil sends latest ending hash (ackHash) as well as an optional list of potentially unknown chits.  If the chit list is empty, this implies an ACK (acknowledge) of some prior provisional endHash the stock may have sent.
+- **err**: An error occurred while attempting to reconcile with a specified update packet.
 
 The first two actions are directly correlated with the sending of a chit--a message already occuring within the chit subsystem.
 So these actions are accomplished simply by populating the additional <i>chain</i> property in the applicable chit message.
+The latter three will encode the desired command into the property *sub*.
 
-The other four messages will carry their own target property of <i>chain.</i>
+Chain messages then contain an object with some or all of the following properties:
+- **action**: = chain
+- **sub**: The chaining subcommand
+- **tally**: The uuid of the tally the message pertains to
+- **hash**: The hash at the end of the chain
+- **index**: The index of the last chit in the chain
+- **chits**: An array of chits from a section of the chain
 
 ### Route Messages
 Property: **target**: route

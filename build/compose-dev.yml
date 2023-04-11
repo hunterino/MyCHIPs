@@ -9,7 +9,7 @@ version: '3.7'
 
 services:
   mychips:
-    image: gotchoices/mychips:16
+    image: gotchoices/mychips:18
     command: bash -c "PATH=$${PATH}:${MYCHIPS_DEVDIR}/node_modules/.bin npm start"
     container_name: $MYCHIPS_HOST
     hostname: $MYCHIPS_HOST
@@ -19,7 +19,7 @@ services:
     environment:
       NODE_DEBUG: ${NODE_DEBUG:-debug}
       MYCHIPS_DBHOST: $MYCHIPS_DBHOST
-    working_dir: ${MYCHIPS_DEVDIR}/mychips
+    working_dir: ${MYCHIPS_DEVDIR}/${MYCHIPS_ROOTNAME:-mychips}
     volumes:
       - "../..:${MYCHIPS_DEVDIR}"
       - "../test/local/docker/${MYCHIPS_HOST}.log:/var/tmp/mychips"
@@ -28,8 +28,8 @@ services:
     depends_on:
       - postgres
     ports:
-      - "${MYCHIPS_SPAPORT:-8000}:8000"
-      - "${MYCHIPS_WSPORT:-54320}:54320"
+      - "${MYCHIPS_UIPORT:-1024}:1024"
+      - "${MYCHIPS_WSPORT:-1025}:1025"
     networks:
       - backend
       - frontend

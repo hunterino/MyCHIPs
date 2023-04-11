@@ -40,12 +40,12 @@ function query {
 }
 
 case $command in
-  spa)		// Launch mychips with only SPA server capabilities
-    $appdir/bin/localcerts -b spa && $appdir/bin/mychips.js -a "" "$@" 1>$ofile.out 2>$ofile.err
+  spa)		# Launch mychips with only SPA server capabilities
+    { $appdir/bin/localcerts -b web && $appdir/bin/mychips.js -a "" "$@" ; } 1>$ofile.out 2>$ofile.err
     ;;
 
   peer)
-    $appdir/bin/mychips.js -s 0 -i 0 -d 0 \
+    $appdir/bin/mychips.js -e 0 -i 0 -d 0 \
     	-a "${MYCHIPS_AGENT}@${MYCHIPS_AGHOST}:${MYCHIPS_AGPORT}" "$@" \
     	1>$ofile.out 2>$ofile.err
     ;;

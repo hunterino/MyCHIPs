@@ -5,7 +5,7 @@ $title(Tally State Diagram)
 state "P.offer.void" as pOfferVoid
 state "B.offer.open" as BOfferOpen
 state "draft.offer" as DraftOffer
-state "open.close" as OpenClose
+'state "open.close" as OpenClose
 state working {
   state "draft" as draft
   state "void" as void
@@ -29,8 +29,8 @@ DraftOffer : Status: draft, Req: offer
 DraftOffer : Must have user signature
 DraftOffer : Agent: Attention!
 
-OpenClose : Status: open, Req: close
-OpenClose : Agent: Attention!
+'OpenClose : Status: open, Req: close
+'OpenClose : Agent: Attention!
 
 draft : Status: draft, Req: null
 draft : User: can modify, sign, delete
@@ -77,9 +77,8 @@ hOffer -[$peer]-> void : $trans($peer,Receive peer refusal, '', Act: void; Notif
 hOffer -[$peer]-> pOffer : $trans($peer,Receive modified tally, '', Act: offer; Notify user)
 void -[$peer]-> pOffer : $trans($peer,Receive modified tally,'', Act: offer; Notify user)
 
-open -right[$user]-> OpenClose : $trans($user, Issues close/call chit, '', Request close)
+open -[$user]-> close : $trans($user, Issues close/call chit, '', Set to close)
 open -[$peer]-> close : $trans($peer,Receive peer\nclose request, '', Act: close)
-OpenClose -[$db]-> close : $trans($db,Req:close detected,'',Transmit act:peerClose)
 close -right[$db]-> closed : $trans(DB,'(No explicit action)',Tally sum is zero)
 
 'closed --> [*]

@@ -14,54 +14,42 @@ const Fs = require('fs')
 const { Args, Dispatch, Log, Credentials, SpaServer} = require('wyclif')
 var log = Log('mychips', undefined, process.env.MYCHIPS_LOGPATH || Path.join('/var','tmp','mychips'))
 const { Wyseman } = require('wyseman')
-var { actions, Parser } = require('wyselib')
-Parser(actions, ['../lib/control1', '../lib/control2'].map(f=>require(f)))	//Require our app-specific reports
+const { actions, Parser } = require('wyselib')
+const contDir = '../lib/control'
 
-var opts = Args({
-  dbHost:	process.env.MYCHIPS_DBHOST,
-  dbPassword:	process.env.MYCHIPS_DBPASSWORD,
-  dbName:	process.env.MYCHIPS_DBNAME	|| 'mychips',
-  dbPort:	process.env.MYCHIPS_DBPORT	|| 5432,
-  dbAdmin:	process.env.MYCHIPS_DBADMIN	|| 'admin',
-  clifPort:	process.env.MYCHIPS_WSPORT	|| 54320,
-  clifNP:	process.env.MYCHIPS_NPPORT	|| 44320,
-  spaPort:	process.env.MYCHIPS_SPAPORT	|| 8000,
-  spaKey:	process.env.MYCHIPS_SPAKEY      || Path.join(__dirname, '../pki/local/spa-%.key'),
-  spaCert:	process.env.MYCHIPS_SPACERT     || Path.join(__dirname, '../pki/local/spa-%.crt'),
-  agentKey:	process.env.MYCHIPS_AGENTKEY    || Path.join(__dirname, '../pki/local/default_agent'),
-  dbUserKey:	process.env.MYCHIPS_DBUSERKEY   || Path.join(__dirname, '../pki/local/data-user.key'),
-  dbUserCert:	process.env.MYCHIPS_DBUSERCERT  || Path.join(__dirname, '../pki/local/data-user.crt'),
-  dbAdminKey:	process.env.MYCHIPS_DBADMINKEY  || Path.join(__dirname, '../pki/local/data-admin.key'),
-  dbAdminCert:	process.env.MYCHIPS_DBADMINCERT || Path.join(__dirname, '../pki/local/data-admin.crt'),
-  dbCA:		process.env.MYCHIPS_DBUSERCERT  || Path.join(__dirname, '../pki/local/data-ca.crt')
-})
-  .alias('d','docs')     .default('docs',	true)	//HTML document server
+const controls = Fs.readdirSync(Path.join(__dirname, contDir)).filter(el => {
+    return Path.extname(el).toLowerCase() == '.js'
+  }).map(f => Path.join(contDir, f))
+Parser(actions, controls.map(f=>require(f)))	//Require our app-specific reports
+
+var opts = Args(require('../lib/config'))
+  .alias('h','home')     .default('home',	true)	//Service Provider HTML Home page
+  .alias('d','docs')     .default('docs',	false)	//HTML document server
   .alias('l','lifts')    .default('lifts',	false)	//Run lift scheduler
   .alias('m','model')    .default('model',	false)	//Run agent-based modeler
   .alias('a','agentKey')				//Each peer server runs with a specific agent key
   .argv
 
 //log.debug("opts:", opts)
-var credentials = (!opts.noHTTPS && opts.spaPort) ? Credentials(opts.spaKey, opts.spaCert, null, log) : null
+var credentials = (!opts.noHTTPS && opts.uiPort) ? Credentials(opts.webKey, opts.webCert, null, log) : null
 var sslAdmin = Credentials(opts.dbAdminKey, opts.dbAdminCert, opts.dbCA)	//Ignore errors
 var sslUser = Credentials(opts.dbUserKey, opts.dbUserCert, opts.dbCA)
 const pubDir = Path.join(__dirname, "..", "pub")
 
-log.info( "SPA Port:    ", opts.spaPort, opts.wyclif, opts.spaKey, opts.spaCert)
-log.debug("CLIF Ports:  ", opts.clifPort, opts.clifNP)
+log.debug("UI Ports:   ", opts.uiPort, opts.clifPort, opts.clifNP)
 log.debug("Agent Key In:", opts.agentKey)
-log.debug("Doc Viewer:  ", opts.docs)
+log.debug("Web Services: ", opts.home, opts.httpPort, opts.httpsPort)
 log.debug("Database:    ", opts.dbHost, opts.dbName, opts.dbAdmin)
 log.trace("Database SSL:", sslAdmin, sslUser)
 log.trace("Modeler:     ", opts.model, "Lifts:", opts.lifts)
 log.trace("Actions:     ", actions)
 
-var expApp = SpaServer({		//Serves up SPA applications via https
-  spaPort: opts.spaPort,
+var userExpApp = new SpaServer({	//Serves up SPA applications via https
+  uiPort: opts.uiPort,
   wyclif: !!opts.wyclif,
   favIconFile: 'favicon.png',
   pubDir, credentials
-}, log)
+}, log).expApp
 
 var wyseman = new Wyseman({		//Accepts websocket connections from SPA/apps
   host: opts.dbHost,
@@ -73,7 +61,8 @@ var wyseman = new Wyseman({		//Accepts websocket connections from SPA/apps
   websock: {port: opts.clifPort, credentials, delta: MaxTimeDelta},
   sock: opts.clifNP, 
   dispatch: Dispatch,
-  log, actions, expApp
+  expApp: userExpApp,
+  log, actions
 }, {
   host: opts.dbHost,
   password: opts.dbPassword,
@@ -84,15 +73,31 @@ var wyseman = new Wyseman({		//Accepts websocket connections from SPA/apps
   log, schema: __dirname + "/../lib/schema.json"
 })
 
-if (Boolean(opts.docs)) {			//Serve up contract documents
-  const DocServ = require('../lib/doc.js')
-  var docs = new DocServ({
-    pubDir, expApp
+if (Boolean(opts.home)) {			//Run general web page services
+  const CSPHome = require('../lib/csphome.js')
+  var cspExpApp = new CSPHome({
+    favIconFile: 'favicon.png',
+    httpPort: opts.httpPort,		httpsPort: opts.httpsPort,
+    smtpHost: opts.smtpHost,		smtpPort: opts.smtpPort,
+    dkimKey: opts.dkimKey,		dkimSelect: opts.dkimSelect,
+    emailData: opts.cspEmail,
+    log, credentials
   }, {
     host: opts.dbHost,
     database:opts.dbName,
     user: opts.dbAdmin, 
-  })
+  }).expApp
+
+  if (Boolean(opts.docs)) {			//Serve up contract documents
+    const DocServ = require('../lib/doc.js')
+    var docs = new DocServ({
+      pubDir, expApp: cspExpApp
+    }, {
+      host: opts.dbHost,
+      database:opts.dbName,
+      user: opts.dbAdmin, 
+    })
+  }
 }
 
 if (Boolean(opts.agentKey)) {		//Create socket server for peer-to-peer communications
@@ -136,7 +141,7 @@ if (Boolean(opts.lifts)) {				//Run lift scheduler
 }
 
 if (Boolean(opts.model)) {				//Run agent-based simulation model
-  const AgentCont = require('../lib/agent.js')		//Model controller
+  const AgentCont = require('../lib/model2.js')		//Model controller
   var agent = new AgentCont({
     host: opts.dbHost,
     database:opts.dbName,

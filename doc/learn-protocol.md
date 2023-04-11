@@ -99,7 +99,7 @@ These use-cases are explained as follows::
 - **Be My Vendor**:
   The User reaches out to a potential trading Partner and asks if he would like to establish a tally.
   This must always happen via some communication channel outside the MyCHIPs protocol.
-  We will call this “out-of-band communication.”
+  We will call this “[out-of-band communication](https://en.wikipedia.org/wiki/Out-of-band_data).”
   Examples include meeting in-person, email, teleconference or a traditional web connection.
   In this case, the User is suggesting he hold the [Foil](learn-tally.md#tally-parts) of the tally and the Partner will hold the [Stock](learn-tally.md#tally-parts).
   The partner is the vendor, or provider of services, so money (value) will normally flow from User to Partner.
@@ -171,7 +171,7 @@ There are three basic types of chits:
   A lift chit will to be signed by a *site* or *referee* certificate, where the site is the system that hosts the MyCHIPs accounts for all the users in the (local) lift or the referee is a site that arbitrates timing for a distributed lift in which multiple sites participate.
   Clearly, the idea of letting one's Chip Service Provider (or worse, some unknown referee site) sign chits on one's behalf sounds potentially dangerous.
   So there are some limitations on lift chits:
-  - The net effect on an entity of a group of (typically 2) chits, belonging to a single lift, must be in accord with the [trading variables](learn-lifts.md#trading-variables) established and signed by that user.
+  - The net effect on an entity of a group of (typically 2) chits, belonging to a single lift, must be in accordance with the [trading variables](learn-lifts.md#trading-variables) established and signed by that user.
   - Typically this means the chits sum to zero so the entity doesn't gain or lose value through the lift.
   - But it could be non-zero if the trading variables specify a charge or allow a penalty for certain lifts.
   - It is the responsibility of a user's host site software to see that lifts are conducted securely and according to these limitations.
@@ -193,7 +193,7 @@ This diagram shows the first case, Sending a Setting or Direct Payment:
 
 When requesting a direct payment from the other party, the sequence gets a little more complicated.
 This involves the generation of an *invoice,* or request for payment.
-Setting chits should never be handled through this sequence.
+Setting chits are not applicable to this sequence.
 
 ![seq-chit-inv](uml/seq-chit-inv.svg)
 
@@ -202,11 +202,7 @@ This is what the Payor does once he receives the proposed chit (see the alt cond
 
 Note that the [consensus algorithm](#chit-chain-consensus) has nothing to do with the validity of a chit.
 If a chit is signed by the party pledging value (debtor), it is a valid chit.
-However, the parties do eventually need to agree about the *order* in which chits are entered into the tally.
-
-This is important from an implementation standpoint because the list of chits will be maintained as a [hash chain](https://en.wikipedia.org/wiki/Hash_chain).
-This *chit chain* can be thought of as a tiny blockchain, known only to the two entities who share the tally.
-When the data is kept this way, it is very easy for the two partners to verify that they have identical information, just by comparing the hash they hold for the last consensed chit on the chain.
+However, the parties eventually need to also agree about the *order* in which chits are entered into the tally.
 
 The third use case (Request Direct Invoice) is one step before this.
 For example, imagine a vendor has provided you services and you are ready to remit payment.
@@ -229,69 +225,103 @@ This sequence will be dealt with in more detail in the section below on [lifts](
 It can be generalized to the simpler case above where an invoice is requested from a direct partner.
 
 Now we can derive the following state diagram to describe the direct chit protocol from the perspective of a single entity.
-Note, the states for setting chits are shown right along with regular transaction chits, and depicted as:
-- Hold.pend.good, Hold.good: Settings made by our local user, and
+Notice the states for setting chits are shown right along with regular transaction chits, and depicted as:
+- Hold.pend.good, Hold.good: Settings made by our local user (tally holder), and
 - Part.good: Settings made by the remote partner peer.
 
 [![state-chit](uml/state-chit.svg)](uml/state-chit.svg)
 
 ### Chit Chain Consensus
 The last step in the diagram above refers to a consensus process.
-This is a sub-protocol by which the peers at each end of a common tally agree upon which order chits are entered onto their copies of the tally.
-Chit order is not particularly important from a theoretical standpoint.
-But in an actual implementation, it is very helpful.
+This is a sub-protocol by which the stock and foil agree upon the order and content of chits entered onto their copies of the tally.
+Chit order may not be particularly important from a theoretical standpoint.
+But content certainly is.
+MyCHIPs uses a storage mechanism called a [hash chain](https://en.wikipedia.org/wiki/Hash_chain) to assure consistency in both.
 
 Each chit contains a hash of its other contents.
 This hash is useful for detecting if anything in the chit has changed (something we don't want to happen).
 
-In addition, each chit contains a copy of the hash for the chit preceeding it on the tally.
+Each chit also contains a copy of the hash for the chit preceeding it in a sequential chain.
 In this way, the hash of the latest chit can be compared with the same point in the chain on the other end of the tally.
-If the end hashes are the same, we can rest assured that the stock and foil contain exactly the same chit information, at least up to that point.
-This is much more efficient than trying to compare every chit on the tally individually each time.
 
-Manual chits can originate from either end of the tally.
-For example, either party can unilaterally sign a chit that sends value to the other.
-Users can also assert certain settings by way of a special settings chit.
+This *chit chain* can be thought of as a tiny blockchain, known only to the two entities who share the tally.
+When the data is kept this way, it is very easy for the two partners to verify that they have identical information, just by comparing the hash they hold for the last consensed chit on the chain.
+
+Manual chits (transactions or settings) may originate from either end of the tally at any time.
 
 ![use-cons](uml/use-cons.svg)
 
 When chits are created as part of a distributed lift, validating signatures will normally propagate around the lift circuit in the downstream (foil to stock) direction.
 So the foil holder on any given tally will usually get the signature before the stock holder.
-As they attempt to reach consensus on chit order, the signature will naturally get shared.
+As they attempt to reach consensus on chit order, the signature will naturally get shared with the stock.
 
-The following diagram shows the sequence of events for the two basic use cases.  Keep in mind, this
-activity is going on as part of the normal chit creation process described above (and/or in the later lift section).
+The following diagram shows the sequence of events for the two basic use cases.
+Keep in mind, this activity is going on as part of the normal chit creation/transmission process described above (and/or in the later lift section).
+But it is an important additional mechanism that makes sure the stock and foil keep consistent versions of all chit information that gets appended to the tally.
 
 ![seq-cons](uml/seq-cons.svg)
 
-The consensus algorithm is pretty simple.
-Both stock and foil have the duty to recognize, accept and store a duly signed and valid chit received from the other.
-But the foil gets to choose how to order the chits in the chain.
-It is the job of the stock to conform to that order.
+The consensus rules are pretty simple.
+Both stock and foil have the duty (and natural incentive) to recognize, accept and store a duly signed and valid chit received from the other.
+But the foil is responsible to choose the order chits will be linked into the chain.
+The stock must conform to that order.
 
 The goal of the consensus protocol is then to:
-- get all valid chits linked into a hash-chained list; and
-- verify that the stock and foil both have an identical list of valid chits.
+- order (link) all valid chits linked into a [hash-chained](https://en.wikipedia.org/wiki/Hash_chain) list; and
+- verify that the stock and foil both have an identical chained list of valid chits.
 
-The consensus protocol is centered around chits.
-But it is really the tally (its two halves) that are (or are not) fully consensed at any given time.
-So think of the chain consensus protocol as a system of sub-states occuring while a tally is in the open (and/or closing) primary state.
+The simplest case is when one side generates a chit and that chit gets completely propagated and linked on both ends before anything else happens on the tally.
+Unfortunately, real life will probably involve several other more messy scenarios:
+1. One or more valid chits get generated on both ends of the tally and are transmitted at about the same time.
+  Both stock and tally will have linked these chits already and think they have a valid end hash.
+  The stock will have to comport to the foil's version of things and reorder its chain accordingly.
+  So it should only keep a *provisional* end hash (propHash) until the foil acknowledges it.
+2. The network between stock and foil is disrupted during normal chit message transmission.
+  The packet handling system is built to correctly detect this and use retries to eventually get the packets through sometime later when connectivity is reestablished.
+  The state of a chit should remain pending (i.e. not yet good) until the transmitting node successfully connects with the other side's agent.
+  As a result, this scenario should devolve into scenario 1 once connectivity is finally restored.
+3. A network packet is correctly transmitted to the other side but then lost somehow.
+  This could happen if the agent process loses connection to the database at just the wrong time.
+  This probably would not be detected until someone tries to add another chit to the chain.
+  Then it would be evident to one side that it has a stray, valid chit that is not part of the other side's chain.
+  - If the stock lost a chit, it should become evident next time the foil sends a list of activitiy since the last acknowledged checkpoint.
+  - If the foil lost a chit, the stock should find it has a leftover valid chit after conforming to the foil.
+    It can then just resend that chit through the normal chit protocol.
+The system should be tolerant of a packet for the same chit (same tally and chit uuid) arriving two or more times.
+This is accomplished by only processing state transitions if the chit is currently in the expected state.
 
-Now we can derive the following state diagram to describe the tally/chit chain consensus sub-states from the perspective of a single site.
+It may seem a little confusing to determine whether the consensus protocol is really a tally thing or a chit thing.
+It is centered around chits.
+But it is really the two halves of the tally that are (or are not) fully consensed at any given time.
+
+Visualize it this way:
+Chaining status is a sub-state of a good chit and consensus is a sub-state of an open tally.
+- A valid chit can be:
+  - unlinked
+  - provisionally linked (stock only)
+  - linked
+- An open (and/or closing) tally can be:
+ - fully consensed (all valid chits are linked)
+ - not fully consensed (one or more valid chits are not yet linked)
+
+In addition to the three basic chit substates shown above, it will be important to know if/when consensus messages have been successfully sent to the other side.
+We will do this by queing messages and only completing state transition after the message has been sent.
+This will allow for more graceful error recovery when a process server crashes or is restarted.
+
+We can now derive the following state diagram to describe the consensus sub-states from the perspective of a single side.
 First, the states associated with the foil:
 
 [![state-cons](uml/state-conf.svg)](uml/state-conf.svg)
 
-For the foil there is not much in the way of states to track.  The only transitions have to do with
-tracking new chits that have been created by either the Stock or the Foil.  And these transitions
-are already being tracked in the chit state machine.  So the Foil just needs to track new chits, 
-add them to its chit chain, and keep the Stock informed about the latest end hash.  All this should
-be possible to accomplish within the existing chit message protocol.
+States for the foil are pretty straightforward.
+It mainly needs to track new good chits, link them into its chain, and reliably inform the Stock about the latest end hash.
 
-For the Stock, it is a little more complicated, as the following diagram illustrates:
+For the Stock, it is a little more complicated.
+It must be able to conform to information it receives from the foil.
+It can't really consider itself fully settled until receiving proper confirmation from the foil.
+And it may need to ask the foil for any chits it has overlooked or not yet received.
 
 [![state-cons](uml/state-cons.svg)](uml/state-cons.svg)
-
 
 ### Credit Lifts Explained
 So far, the protocol has dealt primarily with transactions moving value between two partners who are directly connected by a tally.
